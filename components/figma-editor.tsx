@@ -9,6 +9,8 @@ import { PropertiesPanel } from "./editor/properties-panel"
 import type { CanvasElement, Tool } from "@/lib/types"
 import { generateId } from "@/lib/utils"
 
+export type AlignmentType = "left" | "center" | "right" | "top" | "middle" | "bottom"
+
 export function FigmaEditor() {
   const [elements, setElements] = useState<CanvasElement[]>([])
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -96,6 +98,53 @@ export function FigmaEditor() {
     })
   }, [])
 
+  const alignElements = useCallback((ids: string[], alignment: AlignmentType) => {
+    if (ids.length === 0) return
+
+    setElements((prev) => {
+      const selectedEls = prev.filter((el) => ids.includes(el.id))
+      if (selectedEls.length === 0) return prev
+
+      // Calculate bounding box of all selected elements
+      const bounds = {
+        minX: Math.min(...selectedEls.map((el) => el.x)),
+        maxX: Math.max(...selectedEls.map((el) => el.x + el.width)),
+        minY: Math.min(...selectedEls.map((el) => el.y)),
+        maxY: Math.max(...selectedEls.map((el) => el.y + el.height)),
+      }
+
+      return prev.map((el) => {
+        if (!ids.includes(el.id)) return el
+
+        let newX = el.x
+        let newY = el.y
+
+        switch (alignment) {
+          case "left":
+            newX = bounds.minX
+            break
+          case "center":
+            newX = bounds.minX + (bounds.maxX - bounds.minX) / 2 - el.width / 2
+            break
+          case "right":
+            newX = bounds.maxX - el.width
+            break
+          case "top":
+            newY = bounds.minY
+            break
+          case "middle":
+            newY = bounds.minY + (bounds.maxY - bounds.minY) / 2 - el.height / 2
+            break
+          case "bottom":
+            newY = bounds.maxY - el.height
+            break
+        }
+
+        return { ...el, x: newX, y: newY }
+      })
+    })
+  }, [])
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Delete" || e.key === "Backspace") {
@@ -109,6 +158,11 @@ export function FigmaEditor() {
           duplicateElements(selectedIds)
         }
       }
+      if (e.key === "a" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        const selectableIds = elements.filter((el) => !el.locked).map((el) => el.id)
+        setSelectedIds(selectableIds)
+      }
       if (e.key === "Escape") {
         setSelectedIds([])
         setActiveTool("select")
@@ -116,7 +170,7 @@ export function FigmaEditor() {
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [selectedIds, deleteElements, duplicateElements])
+  }, [selectedIds, deleteElements, duplicateElements, elements])
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-background">
@@ -148,6 +202,7 @@ export function FigmaEditor() {
             updateElement={updateElement}
             deleteElements={deleteElements}
             duplicateElements={duplicateElements}
+            alignElements={alignElements}
           />
         </div>
       </div>

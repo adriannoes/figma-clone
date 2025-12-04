@@ -6,14 +6,27 @@ import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { CanvasElement } from "@/lib/types"
-import { Trash2, Copy, RotateCcw } from "lucide-react"
+import type { AlignmentType } from "@/components/figma-editor"
+import {
+  Trash2,
+  Copy,
+  RotateCcw,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignStartVertical,
+  AlignCenterVertical,
+  AlignEndVertical,
+} from "lucide-react"
 
 interface PropertiesPanelProps {
   selectedElements: CanvasElement[]
   updateElement: (id: string, updates: Partial<CanvasElement>) => void
   deleteElements: (ids: string[]) => void
   duplicateElements: (ids: string[]) => void
+  alignElements: (ids: string[], alignment: AlignmentType) => void // Add alignElements prop
 }
 
 export function PropertiesPanel({
@@ -21,8 +34,11 @@ export function PropertiesPanel({
   updateElement,
   deleteElements,
   duplicateElements,
+  alignElements, // Destructure alignElements
 }: PropertiesPanelProps) {
   const element = selectedElements[0]
+  const selectedIds = selectedElements.map((el) => el.id)
+  const hasMultipleSelected = selectedElements.length > 1
 
   if (!element) {
     return (
@@ -40,13 +56,15 @@ export function PropertiesPanel({
   return (
     <div className="flex w-64 flex-col border-l border-border bg-panel">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <span className="text-sm font-medium text-foreground">Design</span>
+        <span className="text-sm font-medium text-foreground">
+          {hasMultipleSelected ? `${selectedElements.length} selected` : "Design"}
+        </span>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
             className="h-7 w-7 text-muted-foreground hover:text-foreground"
-            onClick={() => duplicateElements([element.id])}
+            onClick={() => duplicateElements(selectedIds)}
           >
             <Copy className="h-4 w-4" />
           </Button>
@@ -54,7 +72,7 @@ export function PropertiesPanel({
             variant="ghost"
             size="icon"
             className="h-7 w-7 text-muted-foreground hover:text-destructive"
-            onClick={() => deleteElements([element.id])}
+            onClick={() => deleteElements(selectedIds)}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -63,6 +81,107 @@ export function PropertiesPanel({
 
       <ScrollArea className="flex-1">
         <div className="space-y-4 p-4">
+          <div className="space-y-3">
+            <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Alignment</h3>
+            <TooltipProvider delayDuration={200}>
+              <div className="flex items-center gap-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      onClick={() => alignElements(selectedIds, "left")}
+                    >
+                      <AlignLeft className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p>Align left</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      onClick={() => alignElements(selectedIds, "center")}
+                    >
+                      <AlignCenter className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p>Align center</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      onClick={() => alignElements(selectedIds, "right")}
+                    >
+                      <AlignRight className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p>Align right</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Separator orientation="vertical" className="mx-1 h-6 bg-border" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      onClick={() => alignElements(selectedIds, "top")}
+                    >
+                      <AlignStartVertical className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p>Align top</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      onClick={() => alignElements(selectedIds, "middle")}
+                    >
+                      <AlignCenterVertical className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p>Align middle</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      onClick={() => alignElements(selectedIds, "bottom")}
+                    >
+                      <AlignEndVertical className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p>Align bottom</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </TooltipProvider>
+          </div>
+
+          <Separator className="bg-border" />
+
           {/* Position & Size */}
           <div className="space-y-3">
             <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Position</h3>
