@@ -5,6 +5,7 @@ import type React from "react"
 import { useRef, useState, useCallback } from "react"
 import type { CanvasElement, Tool } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { ContextMenu } from "./context-menu"
 
 interface CanvasProps {
   elements: CanvasElement[]
@@ -14,6 +15,13 @@ interface CanvasProps {
   setActiveTool: (tool: Tool) => void
   addElement: (type: CanvasElement["type"], x: number, y: number, width: number, height: number) => void
   updateElement: (id: string, updates: Partial<CanvasElement>) => void
+  deleteElements: (ids: string[]) => void
+  duplicateElements: (ids: string[]) => void
+  reorderElement: (id: string, direction: "up" | "down" | "top" | "bottom") => void
+  onCopy: () => void
+  onCut: () => void
+  onPaste: () => void
+  hasClipboard: boolean
   zoom: number
   pan: { x: number; y: number }
   setPan: (pan: { x: number; y: number }) => void
@@ -48,6 +56,12 @@ interface ResizeState {
   elementStartHeight: number
 }
 
+interface ContextMenuState {
+  isOpen: boolean
+  x: number
+  y: number
+}
+
 export function Canvas({
   elements,
   selectedIds,
@@ -56,6 +70,13 @@ export function Canvas({
   setActiveTool,
   addElement,
   updateElement,
+  deleteElements,
+  duplicateElements,
+  reorderElement,
+  onCopy,
+  onCut,
+  onPaste,
+  hasClipboard,
   zoom,
   pan,
   setPan,
@@ -89,6 +110,11 @@ export function Canvas({
   })
   const [isPanning, setIsPanning] = useState(false)
   const [panStart, setPanStart] = useState({ x: 0, y: 0, panX: 0, panY: 0 })
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>({
+    isOpen: false,
+    x: 0,
+    y: 0,
+  })
 
   const getCanvasCoordinates = useCallback(
     (e: React.MouseEvent) => {
@@ -283,6 +309,67 @@ export function Canvas({
     [getCanvasCoordinates],
   )
 
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setContextMenu({
+      isOpen: true,
+      x: e.clientX - (canvasRef.current?.getBoundingClientRect().left ?? 0),
+      y: e.clientY - (canvasRef.current?.getBoundingClientRect().top ?? 0),
+    })
+  }, [])
+
+  const handleElementContextMenu = useCallback(
+    (e: React.MouseEvent, element: CanvasElement) => {
+      e.preventDefault()
+      e.stopPropagation()
+
+      // Select the element if not already selected
+      if (!selectedIds.includes(element.id)) {
+        setSelectedIds([element.id])
+      }
+
+      setContextMenu({
+        isOpen: true,
+        x: e.clientX - (canvasRef.current?.getBoundingClientRect().left ?? 0),
+        y: e.clientY - (canvasRef.current?.getBoundingClientRect().top ?? 0),
+      })
+    },
+    [selectedIds, setSelectedIds],
+  )
+
+  const closeContextMenu = useCallback(() => {
+    setContextMenu({ isOpen: false, x: 0, y: 0 })
+  }, [])
+
+  const handleToggleLock = useCallback(() => {
+    selectedIds.forEach((id) => {
+      const element = elements.find((el) => el.id === id)
+      if (element) {
+        updateElement(id, { locked: !element.locked })
+      }
+    })
+  }, [selectedIds, elements, updateElement])
+
+  const handleToggleVisibility = useCallback(() => {
+    selectedIds.forEach((id) => {
+      const element = elements.find((el) => el.id === id)
+      if (element) {
+        updateElement(id, { visible: !element.visible })
+      }
+    })
+  }, [selectedIds, elements, updateElement])
+
+  const handleReorder = useCallback(
+    (direction: "up" | "down" | "top" | "bottom") => {
+      selectedIds.forEach((id) => {
+        reorderElement(id, direction)
+      })
+    },
+    [selectedIds, reorderElement],
+  )
+
+  const selectedElements = elements.filter((el) => selectedIds.includes(el.id))
+
   const renderElement = (element: CanvasElement) => {
     if (!element.visible) return null
 
@@ -358,6 +445,7 @@ export function Canvas({
         key={element.id}
         style={style}
         onMouseDown={(e) => handleElementMouseDown(e, element)}
+        onContextMenu={(e) => handleElementContextMenu(e, element)}
         className={cn("group", element.locked && "pointer-events-none")}
       >
         {renderShape()}
@@ -431,6 +519,7 @@ export function Canvas({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      onContextMenu={handleContextMenu}
     >
       {/* Grid pattern */}
       <div
@@ -461,6 +550,24 @@ export function Canvas({
       <div className="absolute bottom-2 right-2 rounded bg-secondary px-2 py-1 text-xs text-muted-foreground">
         {Math.round(pan.x)}, {Math.round(pan.y)}
       </div>
+
+      {contextMenu.isOpen && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          selectedElements={selectedElements}
+          onClose={closeContextMenu}
+          onCopy={onCopy}
+          onCut={onCut}
+          onPaste={onPaste}
+          onDuplicate={() => duplicateElements(selectedIds)}
+          onDelete={() => deleteElements(selectedIds)}
+          onReorder={handleReorder}
+          onToggleLock={handleToggleLock}
+          onToggleVisibility={handleToggleVisibility}
+          hasClipboard={hasClipboard}
+        />
+      )}
     </div>
   )
 }

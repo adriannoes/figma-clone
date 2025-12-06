@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { TopBar } from "./editor/top-bar"
 import { Toolbar } from "./editor/toolbar"
 import { Canvas } from "./editor/canvas"
@@ -17,6 +17,9 @@ export function FigmaEditor() {
   const [activeTool, setActiveTool] = useState<Tool>("select")
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
+
+  const clipboardRef = useRef<CanvasElement[]>([])
+  const [hasClipboard, setHasClipboard] = useState(false)
 
   const selectedElements = elements.filter((el) => selectedIds.includes(el.id))
 
@@ -145,10 +148,40 @@ export function FigmaEditor() {
     })
   }, [])
 
+  const handleCopy = useCallback(() => {
+    const elementsToCopy = elements.filter((el) => selectedIds.includes(el.id))
+    clipboardRef.current = elementsToCopy
+    setHasClipboard(elementsToCopy.length > 0)
+  }, [elements, selectedIds])
+
+  const handleCut = useCallback(() => {
+    const elementsToCut = elements.filter((el) => selectedIds.includes(el.id))
+    clipboardRef.current = elementsToCut
+    setHasClipboard(elementsToCut.length > 0)
+    setElements((prev) => prev.filter((el) => !selectedIds.includes(el.id)))
+    setSelectedIds([])
+  }, [elements, selectedIds])
+
+  const handlePaste = useCallback(() => {
+    if (clipboardRef.current.length === 0) return
+
+    const newElements = clipboardRef.current.map((el) => ({
+      ...el,
+      id: generateId(),
+      x: el.x + 20,
+      y: el.y + 20,
+      name: `${el.name} copy`,
+    }))
+    setElements((prev) => [...prev, ...newElements])
+    setSelectedIds(newElements.map((el) => el.id))
+  }, [])
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (document.activeElement?.tagName === "INPUT") return
+
       if (e.key === "Delete" || e.key === "Backspace") {
-        if (selectedIds.length > 0 && document.activeElement?.tagName !== "INPUT") {
+        if (selectedIds.length > 0) {
           deleteElements(selectedIds)
         }
       }
@@ -163,6 +196,18 @@ export function FigmaEditor() {
         const selectableIds = elements.filter((el) => !el.locked).map((el) => el.id)
         setSelectedIds(selectableIds)
       }
+      if (e.key === "c" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        handleCopy()
+      }
+      if (e.key === "x" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        handleCut()
+      }
+      if (e.key === "v" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        handlePaste()
+      }
       if (e.key === "Escape") {
         setSelectedIds([])
         setActiveTool("select")
@@ -170,7 +215,7 @@ export function FigmaEditor() {
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [selectedIds, deleteElements, duplicateElements, elements])
+  }, [selectedIds, deleteElements, duplicateElements, elements, handleCopy, handleCut, handlePaste])
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-background">
@@ -193,6 +238,13 @@ export function FigmaEditor() {
             setActiveTool={setActiveTool}
             addElement={addElement}
             updateElement={updateElement}
+            deleteElements={deleteElements}
+            duplicateElements={duplicateElements}
+            reorderElement={reorderElement}
+            onCopy={handleCopy}
+            onCut={handleCut}
+            onPaste={handlePaste}
+            hasClipboard={hasClipboard}
             zoom={zoom}
             pan={pan}
             setPan={setPan}
